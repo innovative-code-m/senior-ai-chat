@@ -41,9 +41,9 @@ innovative-code-m:
 
 ## 現在のフェーズ
 
-現在は Phase 1「フロントエンドとバックエンドの最小雛形作成」です。
+Phase 1「フロントエンドとバックエンドの最小雛形作成」は完了扱いです。
 
-この段階では本格的な業務機能を実装せず、React + TypeScript の起動確認用画面と、ASP.NET Core Web API の起動確認用 API を用意します。仮登録、管理者承認、パスキー登録、チャット投稿などは後続 Phase で扱います。
+現在は Phase 2「ユーザー仮登録と管理者承認」に入る前の仕様整理・設計更新フェーズです。仮登録、管理者承認、パスキー登録、チャット投稿などの本格機能は、関連する `docs/` の設計を更新してから後続 Phase で扱います。
 
 ## 初期段階の重要方針
 
@@ -120,6 +120,9 @@ backend:
 authentication:
   Passkey / WebAuthn
 
+notification:
+  MVPでは承認後の自動メール送信を必須にしない
+
 database:
   MySQL 8.4
 
@@ -188,8 +191,12 @@ npm run dev
 │   ├── 05_realtime_chat_design.md
 │   ├── 06_admin_design.md
 │   ├── 07_mvp_development_plan.md
-│   └── decisions/
-│       └── README.md
+│   ├── decisions/
+│   │   ├── README.md
+│   │   ├── 0001_phase1_minimum_scaffold.md
+│   │   └── 0002_spec_review_followup.md
+│   └── reviews/
+│       └── 0001_spec_review_2026-05-13.md
 ├── prompts/
 │   ├── README.md
 │   ├── init/
@@ -243,7 +250,7 @@ npm run dev
 
 ## 実装について
 
-Phase 1 では、ローカル起動確認のための最小雛形のみを作成しています。
+Phase 1 では、ローカル起動確認のための最小雛形のみを作成しました。
 
 現時点で実装していない範囲:
 

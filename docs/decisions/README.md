@@ -19,3 +19,4 @@
 ## 決定記録
 
 - `0001_phase1_minimum_scaffold.md`: Phase 1 の最小雛形構成
+- `0002_spec_review_followup.md`: 仕様レビュー指摘への対応方針
