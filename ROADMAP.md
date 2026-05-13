@@ -21,7 +21,7 @@
 | Phase 0 | 完了 | README、AGENTS、docs、初期ディレクトリを整備した | `log/working/2026-05-14_01_initialize-project-documentation.md` |
 | Phase 1 | 完了扱い | React + TypeScript と ASP.NET Core Web API の最小雛形を作成した | `docs/decisions/0001_phase1_minimum_scaffold.md`、`log/working/2026-05-14_02_phase1-minimum-scaffold.md` |
 | Phase 2 | 完了扱い | 仮登録、状態確認、Development 環境限定の管理者承認 API / 画面を追加した | `docs/decisions/0003_phase2_registration_admin_approval.md`、`log/working/2026-05-14_03_phase2-registration-admin-approval.md` |
-| Phase 3 | 未着手 | Passkey / WebAuthn 登録とログイン | `docs/04_authentication_design.md` |
+| Phase 3 | 完了扱い | Passkey / WebAuthn 登録とログインのローカル検証実装を追加した | `docs/decisions/0004_phase3_passkey_registration_login.md`、`log/working/2026-05-14_04_phase3-passkey-registration-login.md` |
 | Phase 4 | 未着手 | チャット投稿・閲覧 | `docs/05_realtime_chat_design.md` |
 | Phase 5 | 未着手 | 投稿カテゴリと反応ボタン | `docs/01_requirements.md`、`docs/03_data_model.md` |
 | Phase 6 | 未着手 | メンバー一覧と管理者機能 | `docs/06_admin_design.md` |
@@ -39,11 +39,17 @@
 - `tests/` 配下に実行可能なテストプロジェクトを追加する場合は、Phase 2 の API 状態遷移を自動テスト化する。
 - Phase 2 のインメモリストアはローカル検証用であり、データベース永続化は後続 Phase で扱う。
 
-### Phase 3 着手前
+### Phase 3
 
-- Passkey / WebAuthn 登録フローの詳細を `docs/04_authentication_design.md` に反映する。
-- 初期管理者の作成手順、管理者ログイン、管理者セッションの扱いを決める。
-- Phase 2 の無認証管理者機能を本番運用可能な形で残さないことを再確認する。
+- Node.js / npm が利用できる環境で、フロントエンドの依存関係確認、ビルド、ローカル起動を確認する。
+- `http://localhost:5173` と `http://localhost:5086` の組み合わせで、ブラウザの WebAuthn API によるパスキー登録完了、ログイン完了、`GET /api/auth/me`、ログアウトを通し確認する。
+- Phase 3 のインメモリストアはローカル検証用であり、データベース永続化は後続 Phase で扱う。
+- 管理者 API は引き続き `Development` 環境限定であり、本番向け管理者認証は後続 Phase または別作業で扱う。
+
+### Phase 4 着手前
+
+- Cookie セッションで `Active` ユーザーだけがチャット API と SignalR Hub を利用できることを設計・実装で確認する。
+- チャット本文に個人情報が含まれる場合の注意喚起、保存期間、削除方針を再確認する。
 
 ## 更新ルール
 

@@ -2,12 +2,12 @@
 
 このディレクトリは、アプリケーション本体の実装コードを置く場所です。
 
-Phase 1 では、ローカル起動確認のための最小雛形だけを作成しています。仮登録、管理者承認、パスキー登録、チャット投稿などの業務機能は後続 Phase で実装します。
+Phase 3 では、仮登録、管理者承認、パスキー登録、パスキーログイン、Cookie セッションのローカル検証実装までを追加しています。チャット投稿、データベース接続、本番向け管理者認証は後続 Phase で実装します。
 
 ## ディレクトリ
 
-- `frontend/`: React + TypeScript + Vite の最小フロントエンド
-- `backend/`: ASP.NET Core Web API + SignalR 接続口の最小バックエンド
+- `frontend/`: React + TypeScript + Vite の Phase 3 最小フロントエンド
+- `backend/`: ASP.NET Core Web API + SignalR 接続口 + Phase 3 認証 API
 
 ## ローカル起動
 
@@ -16,10 +16,10 @@ Phase 1 では、ローカル起動確認のための最小雛形だけを作成
 ```powershell
 cd src/frontend
 npm install
-npm run dev
+npm run dev -- --host localhost
 ```
 
-標準では `http://127.0.0.1:5173` で起動します。
+WebAuthn のローカル検証では、まず `http://localhost:5173` で起動します。
 
 ### バックエンド
 
@@ -44,4 +44,4 @@ Invoke-RestMethod http://localhost:5086/health
 - パスワード認証を追加しない
 - MVP範囲外の機能を勝手に追加しない
 - 実在の個人情報をサンプルデータとして含めない
-- Phase 1 ではデータベース、認証本実装、チャット本実装を行わない
+- Phase 3 ではデータベース、本番向け管理者認証、チャット本実装を行わない

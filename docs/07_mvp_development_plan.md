@@ -4,7 +4,7 @@
 
 フェーズごとの現在状態は、ルートの `ROADMAP.md` で管理します。
 
-2026-05-14 時点では、Phase 1「フロントエンドとバックエンドの最小雛形作成」と Phase 2「ユーザー仮登録と管理者承認」のローカル検証実装を完了扱いとしています。
+2026-05-14 時点では、Phase 1「フロントエンドとバックエンドの最小雛形作成」、Phase 2「ユーザー仮登録と管理者承認」、Phase 3「パスキー登録とログイン」のローカル検証実装を完了扱いとしています。
 
 ## Phase 0: リポジトリ初期化、README、AGENTS、docs作成
 
@@ -125,6 +125,56 @@ dotnet run
 | 成果物 | パスキー登録画面、ログイン画面、WebAuthn連携、再登録許可の基本設計 |
 | 完了条件 | パスワードなしでパスキー登録とログインができる |
 | 着手前提 | WebAuthn後のセッション方式を HttpOnly Cookie セッションとして文書化している |
+
+### Phase 3 着手前の決定事項
+
+- WebAuthn 実装ライブラリは `Fido2.AspNet` 4.0.1 を使う
+- Phase 3 ではデータベースを導入せず、既存のインメモリストアを拡張する
+- パスキー情報、WebAuthn チャレンジ、Cookie セッションはバックエンドプロセス内のインメモリで保持する
+- アプリ再起動で登録データ、パスキー情報、チャレンジ、セッションは失われる
+- チャレンジの有効期限は5分、一回限り利用とする
+- Cookie セッション名は `sac_session`、有効期限は8時間、`HttpOnly`、`SameSite=Lax` とする
+- ローカル開発の RP ID は `localhost` とし、Origin は `http://localhost:5086`、`http://localhost:5173`、`http://127.0.0.1:5173` を許可する
+- 別オリジンのフロントエンドから API を呼ぶ場合は `credentials: 'include'` を使う
+- 管理者 API と管理者画面は Phase 2 と同じく `Development` 環境限定に留める
+- 本番向け管理者認証、初期管理者投入手順、MySQL 永続化は Phase 3 では実装しない
+
+### Phase 3 API
+
+| API | 用途 | Phase 3 の扱い |
+| --- | --- | --- |
+| `POST /api/passkeys/register/options` | パスキー登録開始 | `PasskeyRegistrationPending` または `PasskeyResetAllowed` の利用者に登録チャレンジを発行する |
+| `POST /api/passkeys/register/complete` | パスキー登録完了 | WebAuthn 検証成功後、パスキー情報を保存し、状態を `Active` にする |
+| `POST /api/auth/passkey/options` | パスキーログイン開始 | `Active` でパスキー登録済みの利用者にログインチャレンジを発行する |
+| `POST /api/auth/passkey/complete` | パスキーログイン完了 | WebAuthn 検証成功後、HttpOnly Cookie セッションを発行する |
+| `GET /api/auth/me` | ログイン状態確認 | Cookie セッションからログイン中ユーザーの最小情報を返す |
+| `POST /api/auth/logout` | ログアウト | サーバー側セッションを削除し、Cookie を失効させる |
+
+### Phase 3 状態遷移
+
+| 操作 | 変更前 | 変更後 |
+| --- | --- | --- |
+| パスキー登録成功 | `PasskeyRegistrationPending` | `Active` |
+| パスキー再登録成功 | `PasskeyResetAllowed` | `Active` |
+| パスキーログイン成功 | `Active` | `Active` |
+
+`PendingApproval`、`Rejected`、`Suspended` の利用者には、パスキー登録とログインを許可しません。`Approved` という Status 値は使いません。
+
+### Phase 3 検証記録
+
+検証結果は `log/working/2026-05-14_04_phase3-passkey-registration-login.md` に記録します。
+
+- 2026-05-14: `dotnet add src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj package Fido2.AspNet --version 4.0.1` を実行し、WebAuthn 実装ライブラリを追加した。
+- 2026-05-14: `dotnet build src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj --no-restore` が警告 0、エラー 0 で成功した。
+- 2026-05-14: `GET /health` が `phase: Phase 3` を返すことを確認した。
+- 2026-05-14: `POST /api/registrations`、`GET /api/registrations/status`、`POST /api/admin/users/{id}/approve` で `PendingApproval` から `PasskeyRegistrationPending` へ遷移することを確認した。
+- 2026-05-14: `POST /api/passkeys/register/options` が `PasskeyRegistrationPending` の利用者に `localhost` RP ID の WebAuthn 登録チャレンジを返すことを確認した。
+- 2026-05-14: `PendingApproval` の利用者が `POST /api/passkeys/register/options` で 409 となることを確認した。
+- 2026-05-14: パスキー未登録の利用者が `POST /api/auth/passkey/options` で 409 となることを確認した。
+- 2026-05-14: セッションなしの `GET /api/auth/me` が 401 となることを確認した。
+- 2026-05-14: `POST /api/auth/logout` が `sac_session` Cookie を失効させることを確認した。
+- 2026-05-14: `ASPNETCORE_ENVIRONMENT=Production` かつ `--no-launch-profile` で起動し、`GET /api/admin/users/pending` が 404 となることを確認した。
+- 2026-05-14: この作業環境では `node` と `npm` が PATH 上に見つからないため、フロントエンドの依存関係確認、`npm run build`、`npm run dev`、ブラウザでの WebAuthn 登録・ログイン通し確認は未実行とした。
 
 ## Phase 4: チャット投稿・閲覧
 

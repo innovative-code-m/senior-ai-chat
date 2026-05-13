@@ -88,6 +88,61 @@ Phase 2 で扱う項目は以下です。
 | CreatedAt | 作成日時 | 監査用 |
 | RevokedAt | 無効化日時 | 端末紛失時など |
 
+### Phase 3 の UserPasskeys 実装範囲
+
+Phase 3 ではデータベース接続を追加せず、バックエンドプロセス内のインメモリストアで `UserPasskeys` 相当の情報を保持します。
+
+| 項目名 | Phase 3 の扱い |
+| --- | --- |
+| Id | サーバー内で採番する GUID |
+| UserId | `Users.Id` を保持する |
+| CredentialId | WebAuthn 資格情報 ID を base64url 文字列で保持する |
+| PublicKey | FIDO2 ライブラリの検証結果から得た公開鍵バイト列を保持する |
+| SignCount | ログイン検証時に署名カウンタを更新する |
+| UserHandle | WebAuthn の user handle として `Users.Id` のバイト列を保持する |
+| DeviceName | Phase 3 では利用者入力を求めず、空のままとする |
+| LastUsedAt | パスキーログイン成功時に更新する |
+| CreatedAt | パスキー登録成功時に設定する |
+| RevokedAt | Phase 3 では無効化 API を実装せず、将来の管理者機能で扱う |
+
+秘密鍵そのものはブラウザまたは端末側に保持され、サーバーには保存しません。
+
+Phase 3 のインメモリ実装には次の制限があります。
+
+- アプリ再起動で仮登録、承認状態、パスキー情報、チャレンジ、セッションが失われる
+- ブラウザやOS側に残ったパスキーは、サーバー側の資格情報が失われるとログインに使えない
+- 本番運用可能な永続化方式ではない
+- MySQL 8.4 のテーブル、マイグレーション、初期管理者投入手順は後続 Phase または別作業で扱う
+
+## WebAuthnChallenges
+
+WebAuthn 登録・ログインのチャレンジを一時的に保持します。
+
+| 項目名 | 概要 | Phase 3 の扱い |
+| --- | --- | --- |
+| Id | チャレンジID | サーバー内で採番する GUID |
+| UserId | 対象ユーザーID | メールアドレスで特定したユーザーに紐づける |
+| Purpose | 用途 | `Registration` または `Authentication` |
+| OptionsJson | 発行した WebAuthn オプション | FIDO2 ライブラリの JSON を保持する |
+| CreatedAt | 発行日時 | UTCで保持する |
+| ExpiresAt | 有効期限 | Phase 3 では発行から5分 |
+| ConsumedAt | 使用日時 | 完了 API の処理開始時に一回限り利用として設定する |
+
+チャレンジは、登録開始 API またはログイン開始 API の呼び出し時に発行し、完了 API で検証前に取り出して消費済みにします。期限切れ、用途不一致、対象ユーザー不一致、すでに使用済みのチャレンジは拒否します。
+
+## Sessions
+
+Phase 3 では、WebAuthn 検証成功後に HttpOnly Cookie セッションを発行します。
+
+| 項目名 | 概要 | Phase 3 の扱い |
+| --- | --- | --- |
+| SessionId | セッションID | ランダムな base64url 文字列。Cookie に保存する |
+| UserId | ログイン中ユーザーID | サーバー内のインメモリストアに保持する |
+| CreatedAt | 発行日時 | UTCで保持する |
+| ExpiresAt | 有効期限 | Phase 3 では発行から8時間 |
+
+Cookie 名は `sac_session` とします。`HttpOnly` を有効にし、`SameSite=Lax`、開発環境の HTTP では `Secure=false`、HTTPS 環境では `Secure=true` とします。フロントエンドが別オリジンの場合、fetch では `credentials: 'include'` を使います。
+
 ## Messages
 
 チャット投稿を管理します。

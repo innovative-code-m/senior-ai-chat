@@ -1,6 +1,12 @@
 import { FormEvent, useState } from 'react';
 
-type ViewMode = 'register' | 'status' | 'admin';
+type ViewMode =
+  | 'register'
+  | 'status'
+  | 'passkeyRegister'
+  | 'login'
+  | 'session'
+  | 'admin';
 
 type RegistrationForm = {
   fullName: string;
@@ -42,6 +48,53 @@ type AdminUserActionResponse = {
   message: string;
 };
 
+type CredentialDescriptorJson = {
+  type: PublicKeyCredentialType;
+  id: string;
+  transports?: AuthenticatorTransport[];
+};
+
+type CredentialCreationOptionsJson = Omit<
+  PublicKeyCredentialCreationOptions,
+  'challenge' | 'excludeCredentials' | 'user'
+> & {
+  challenge: string;
+  excludeCredentials?: CredentialDescriptorJson[];
+  user: Omit<PublicKeyCredentialUserEntity, 'id'> & { id: string };
+};
+
+type CredentialRequestOptionsJson = Omit<
+  PublicKeyCredentialRequestOptions,
+  'allowCredentials' | 'challenge'
+> & {
+  allowCredentials?: CredentialDescriptorJson[];
+  challenge: string;
+};
+
+type WebAuthnOptionsResponse<TOptions> = {
+  challengeId: string;
+  publicKey: TOptions;
+};
+
+type PasskeyActionResponse = {
+  userId: string;
+  status: string;
+  message: string;
+};
+
+type LoginCompleteResponse = {
+  userId: string;
+  status: string;
+  role: string;
+  message: string;
+};
+
+type CurrentUserResponse = {
+  userId: string;
+  status: string;
+  role: string;
+};
+
 const apiBaseUrl =
   import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, '') ??
   'http://localhost:5086';
@@ -64,6 +117,18 @@ export default function App() {
   });
   const [statusEmail, setStatusEmail] = useState('');
   const [statusState, setStatusState] = useState<RequestState>({ kind: 'idle' });
+  const [passkeyEmail, setPasskeyEmail] = useState('');
+  const [passkeyState, setPasskeyState] = useState<RequestState>({
+    kind: 'idle'
+  });
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginState, setLoginState] = useState<RequestState>({ kind: 'idle' });
+  const [currentUser, setCurrentUser] = useState<CurrentUserResponse | null>(
+    null
+  );
+  const [sessionState, setSessionState] = useState<RequestState>({
+    kind: 'idle'
+  });
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [adminState, setAdminState] = useState<RequestState>({ kind: 'idle' });
 
@@ -137,8 +202,177 @@ export default function App() {
         kind: 'success',
         message: `${toStatusLabel(result.status)}: ${result.message}`
       });
+
+      if (result.status === 'PasskeyRegistrationPending') {
+        setPasskeyEmail(statusEmail);
+      }
     } catch (error) {
       setStatusState({
+        kind: 'error',
+        message: getErrorMessage(error)
+      });
+    }
+  };
+
+  const registerPasskey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setPasskeyState({
+      kind: 'loading',
+      message: '端末の安全な本人確認を始めます。'
+    });
+
+    try {
+      ensureWebAuthnSupport();
+
+      const optionsResponse = await postJson<
+        WebAuthnOptionsResponse<CredentialCreationOptionsJson>
+      >('/api/passkeys/register/options', { email: passkeyEmail });
+
+      const credential = await navigator.credentials.create({
+        publicKey: toCredentialCreationOptions(optionsResponse.publicKey)
+      });
+
+      if (!(credential instanceof PublicKeyCredential)) {
+        throw new Error('パスキー登録が中断されました。もう一度お試しください。');
+      }
+
+      const result = await postJson<PasskeyActionResponse>(
+        '/api/passkeys/register/complete',
+        {
+          challengeId: optionsResponse.challengeId,
+          credential: serializeRegistrationCredential(credential)
+        }
+      );
+
+      setPasskeyState({
+        kind: 'success',
+        message: `${result.message} 現在の状態: ${toStatusLabel(result.status)}`
+      });
+      setLoginEmail(passkeyEmail);
+    } catch (error) {
+      setPasskeyState({
+        kind: 'error',
+        message: getErrorMessage(error)
+      });
+    }
+  };
+
+  const loginWithPasskey = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginState({
+      kind: 'loading',
+      message: '端末の本人確認でログインします。'
+    });
+
+    try {
+      ensureWebAuthnSupport();
+
+      const optionsResponse = await postJson<
+        WebAuthnOptionsResponse<CredentialRequestOptionsJson>
+      >('/api/auth/passkey/options', { email: loginEmail });
+
+      const credential = await navigator.credentials.get({
+        publicKey: toCredentialRequestOptions(optionsResponse.publicKey)
+      });
+
+      if (!(credential instanceof PublicKeyCredential)) {
+        throw new Error('ログインが中断されました。もう一度お試しください。');
+      }
+
+      const result = await postJson<LoginCompleteResponse>(
+        '/api/auth/passkey/complete',
+        {
+          challengeId: optionsResponse.challengeId,
+          credential: serializeLoginCredential(credential)
+        },
+        true
+      );
+
+      setCurrentUser({
+        userId: result.userId,
+        status: result.status,
+        role: result.role
+      });
+      setLoginState({
+        kind: 'success',
+        message: result.message
+      });
+      setSessionState({
+        kind: 'success',
+        message: 'ログイン中です。'
+      });
+    } catch (error) {
+      setLoginState({
+        kind: 'error',
+        message: getErrorMessage(error)
+      });
+    }
+  };
+
+  const loadCurrentUser = async () => {
+    setSessionState({
+      kind: 'loading',
+      message: 'ログイン状態を確認しています。'
+    });
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/me`, {
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (response.status === 401) {
+        setCurrentUser(null);
+        setSessionState({
+          kind: 'error',
+          message: '現在はログインしていません。'
+        });
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(await readProblemMessage(response));
+      }
+
+      const result = (await response.json()) as CurrentUserResponse;
+      setCurrentUser(result);
+      setSessionState({
+        kind: 'success',
+        message: 'ログイン中です。'
+      });
+    } catch (error) {
+      setCurrentUser(null);
+      setSessionState({
+        kind: 'error',
+        message: getErrorMessage(error)
+      });
+    }
+  };
+
+  const logout = async () => {
+    setSessionState({
+      kind: 'loading',
+      message: 'ログアウトしています。'
+    });
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Accept: 'application/json' }
+      });
+
+      if (!response.ok) {
+        throw new Error(await readProblemMessage(response));
+      }
+
+      setCurrentUser(null);
+      setSessionState({
+        kind: 'success',
+        message: 'ログアウトしました。'
+      });
+    } catch (error) {
+      setSessionState({
         kind: 'error',
         message: getErrorMessage(error)
       });
@@ -184,6 +418,7 @@ export default function App() {
     action: 'approve' | 'reject'
   ) => {
     const actionLabel = action === 'approve' ? '承認' : '否認';
+    const targetEmail = pendingUsers.find((user) => user.id === userId)?.email;
     setAdminState({
       kind: 'loading',
       message: `${actionLabel}しています。`
@@ -206,6 +441,9 @@ export default function App() {
       await loadPendingUsers(
         `${result.message} 現在の状態: ${toStatusLabel(result.status)}`
       );
+      if (action === 'approve' && targetEmail) {
+        setPasskeyEmail(targetEmail);
+      }
     } catch (error) {
       setAdminState({
         kind: 'error',
@@ -217,39 +455,57 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="app-header">
-        <p className="phase-label">Phase 2 ローカル検証</p>
+        <p className="phase-label">Phase 3 ローカル検証</p>
         <h1>senior-ai-chat</h1>
         <p className="lead">
-          参加希望者の仮登録と、管理者による承認・否認の流れを確認します。
+          仮登録、管理者承認、パスキー登録、パスキーログインの最小の流れを確認します。
         </p>
       </header>
 
       <nav className="mode-tabs" aria-label="作業の切り替え">
-        <button
-          type="button"
-          className={viewMode === 'register' ? 'active' : ''}
+        <ModeButton
+          active={viewMode === 'register'}
           onClick={() => setViewMode('register')}
         >
           仮登録
-        </button>
-        <button
-          type="button"
-          className={viewMode === 'status' ? 'active' : ''}
+        </ModeButton>
+        <ModeButton
+          active={viewMode === 'status'}
           onClick={() => setViewMode('status')}
         >
           状態確認
-        </button>
+        </ModeButton>
+        <ModeButton
+          active={viewMode === 'passkeyRegister'}
+          onClick={() => setViewMode('passkeyRegister')}
+        >
+          パスキー登録
+        </ModeButton>
+        <ModeButton
+          active={viewMode === 'login'}
+          onClick={() => setViewMode('login')}
+        >
+          ログイン
+        </ModeButton>
+        <ModeButton
+          active={viewMode === 'session'}
+          onClick={() => {
+            setViewMode('session');
+            void loadCurrentUser();
+          }}
+        >
+          ログイン状態
+        </ModeButton>
         {isDevelopment && (
-          <button
-            type="button"
-            className={viewMode === 'admin' ? 'active' : ''}
+          <ModeButton
+            active={viewMode === 'admin'}
             onClick={() => {
               setViewMode('admin');
               void loadPendingUsers();
             }}
           >
             開発用管理
-          </button>
+          </ModeButton>
         )}
       </nav>
 
@@ -296,8 +552,7 @@ export default function App() {
             <button type="submit">仮登録を送信</button>
           </form>
           <p className="support-text">
-            送信後は管理者の確認待ちになります。承認後の自動メール送信は
-            Phase 2 では行いません。
+            送信後は管理者の確認待ちになります。承認後はパスキー登録へ進みます。
           </p>
           <StateMessage state={registrationState} />
         </section>
@@ -328,6 +583,95 @@ export default function App() {
         </section>
       )}
 
+      {viewMode === 'passkeyRegister' && (
+        <section className="work-panel" aria-labelledby="passkey-title">
+          <div className="panel-heading">
+            <p className="section-label">端末の安全な本人確認</p>
+            <h2 id="passkey-title">パスキー登録</h2>
+          </div>
+          <form className="form-grid compact" onSubmit={registerPasskey}>
+            <label>
+              <span>メールアドレス</span>
+              <input
+                value={passkeyEmail}
+                onChange={(event) => setPasskeyEmail(event.target.value)}
+                type="email"
+                autoComplete="email"
+              />
+            </label>
+            <button type="submit">パスキーを登録</button>
+          </form>
+          <p className="support-text">
+            承認済みの方だけが登録できます。画面の案内に従って、顔認証、指紋認証、端末のロック解除などを行います。
+          </p>
+          <StateMessage state={passkeyState} />
+        </section>
+      )}
+
+      {viewMode === 'login' && (
+        <section className="work-panel" aria-labelledby="login-title">
+          <div className="panel-heading">
+            <p className="section-label">パスワードなし</p>
+            <h2 id="login-title">ログイン</h2>
+          </div>
+          <form className="form-grid compact" onSubmit={loginWithPasskey}>
+            <label>
+              <span>メールアドレス</span>
+              <input
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                type="email"
+                autoComplete="email"
+              />
+            </label>
+            <button type="submit">パスキーでログイン</button>
+          </form>
+          <p className="support-text">
+            パスワードは使いません。登録した端末の本人確認でログインします。
+          </p>
+          <StateMessage state={loginState} />
+        </section>
+      )}
+
+      {viewMode === 'session' && (
+        <section className="work-panel" aria-labelledby="session-title">
+          <div className="panel-heading admin-heading">
+            <div>
+              <p className="section-label">現在の状態</p>
+              <h2 id="session-title">ログイン状態</h2>
+            </div>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => void loadCurrentUser()}
+            >
+              再確認
+            </button>
+          </div>
+          <StateMessage state={sessionState} />
+          {currentUser && (
+            <div className="session-summary">
+              <dl>
+                <div>
+                  <dt>状態</dt>
+                  <dd>{toStatusLabel(currentUser.status)}</dd>
+                </div>
+                <div>
+                  <dt>権限</dt>
+                  <dd>{toRoleLabel(currentUser.role)}</dd>
+                </div>
+              </dl>
+              <button type="button" className="danger" onClick={() => void logout()}>
+                ログアウト
+              </button>
+            </div>
+          )}
+          <p className="support-text">
+            Phase 3 ではログイン確認までを扱います。チャット画面は次の Phase で実装します。
+          </p>
+        </section>
+      )}
+
       {viewMode === 'admin' && isDevelopment && (
         <section className="work-panel" aria-labelledby="admin-title">
           <div className="panel-heading admin-heading">
@@ -344,7 +688,7 @@ export default function App() {
             </button>
           </div>
           <p className="warning-text">
-            この管理画面は Phase 2 のローカル検証用です。本番運用には使いません。
+            この管理画面はローカル検証用です。本番運用には使いません。
           </p>
           <StateMessage state={adminState} />
 
@@ -396,6 +740,26 @@ export default function App() {
   );
 }
 
+function ModeButton({
+  active,
+  children,
+  onClick
+}: {
+  active: boolean;
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={active ? 'active' : ''}
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
+}
+
 function StateMessage({ state }: { state: RequestState }) {
   if (state.kind === 'idle') {
     return null;
@@ -406,6 +770,28 @@ function StateMessage({ state }: { state: RequestState }) {
       {state.message}
     </p>
   );
+}
+
+async function postJson<TResponse>(
+  path: string,
+  body: unknown,
+  includeCredentials = false
+) {
+  const response = await fetch(`${apiBaseUrl}${path}`, {
+    method: 'POST',
+    credentials: includeCredentials ? 'include' : 'same-origin',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+
+  if (!response.ok) {
+    throw new Error(await readProblemMessage(response));
+  }
+
+  return (await response.json()) as TResponse;
 }
 
 async function readProblemMessage(response: Response) {
@@ -424,6 +810,118 @@ async function readProblemMessage(response: Response) {
   } catch {
     return `HTTP ${response.status}`;
   }
+}
+
+function ensureWebAuthnSupport() {
+  if (!window.PublicKeyCredential || !navigator.credentials) {
+    throw new Error(
+      'このブラウザではパスキーを利用できません。別のブラウザまたは端末でお試しください。'
+    );
+  }
+}
+
+function toCredentialCreationOptions(
+  json: CredentialCreationOptionsJson
+): PublicKeyCredentialCreationOptions {
+  return {
+    ...json,
+    challenge: base64UrlToArrayBuffer(json.challenge),
+    excludeCredentials: json.excludeCredentials?.map(toCredentialDescriptor),
+    user: {
+      ...json.user,
+      id: base64UrlToArrayBuffer(json.user.id)
+    }
+  };
+}
+
+function toCredentialRequestOptions(
+  json: CredentialRequestOptionsJson
+): PublicKeyCredentialRequestOptions {
+  return {
+    ...json,
+    allowCredentials: json.allowCredentials?.map(toCredentialDescriptor),
+    challenge: base64UrlToArrayBuffer(json.challenge)
+  };
+}
+
+function toCredentialDescriptor(
+  descriptor: CredentialDescriptorJson
+): PublicKeyCredentialDescriptor {
+  return {
+    ...descriptor,
+    id: base64UrlToArrayBuffer(descriptor.id)
+  };
+}
+
+function serializeRegistrationCredential(credential: PublicKeyCredential) {
+  const response = credential.response as AuthenticatorAttestationResponse;
+  const responseWithTransports = response as AuthenticatorAttestationResponse & {
+    getTransports?: () => AuthenticatorTransport[];
+  };
+
+  return {
+    id: credential.id,
+    rawId: arrayBufferToBase64Url(credential.rawId),
+    type: credential.type,
+    response: {
+      attestationObject: arrayBufferToBase64Url(response.attestationObject),
+      clientDataJson: arrayBufferToBase64Url(response.clientDataJSON),
+      transports: responseWithTransports.getTransports?.()
+    },
+    extensions: credential.getClientExtensionResults(),
+    clientExtensionResults: credential.getClientExtensionResults()
+  };
+}
+
+function serializeLoginCredential(credential: PublicKeyCredential) {
+  const response = credential.response as AuthenticatorAssertionResponse;
+
+  return {
+    id: credential.id,
+    rawId: arrayBufferToBase64Url(credential.rawId),
+    type: credential.type,
+    response: {
+      authenticatorData: arrayBufferToBase64Url(response.authenticatorData),
+      clientDataJson: arrayBufferToBase64Url(response.clientDataJSON),
+      signature: arrayBufferToBase64Url(response.signature),
+      userHandle: response.userHandle
+        ? arrayBufferToBase64Url(response.userHandle)
+        : null
+    },
+    extensions: credential.getClientExtensionResults(),
+    clientExtensionResults: credential.getClientExtensionResults()
+  };
+}
+
+function base64UrlToArrayBuffer(value: string) {
+  const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+  const binary = window.atob(padded);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+
+  const output = new ArrayBuffer(bytes.byteLength);
+  new Uint8Array(output).set(bytes);
+
+  return output;
+}
+
+function arrayBufferToBase64Url(buffer: ArrayBuffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return window
+    .btoa(binary)
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
 }
 
 function getErrorMessage(error: unknown) {
@@ -448,6 +946,17 @@ function toStatusLabel(status: string) {
       return '否認';
     default:
       return status;
+  }
+}
+
+function toRoleLabel(role: string) {
+  switch (role) {
+    case 'Admin':
+      return '管理者';
+    case 'Member':
+      return 'メンバー';
+    default:
+      return role;
   }
 }
 

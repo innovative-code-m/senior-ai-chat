@@ -49,9 +49,9 @@ innovative-code-m:
 
 フェーズごとの完了、完了扱い、未着手の状態は `ROADMAP.md` で管理します。
 
-現在は Phase 2「ユーザー仮登録と管理者承認」のローカル検証実装まで完了扱いです。仮登録、状態確認、開発環境限定の管理者承認 API / 画面を追加しています。
+現在は Phase 3「パスキー登録とログイン」のローカル検証実装まで完了扱いです。仮登録、状態確認、開発環境限定の管理者承認 API / 画面、Passkey / WebAuthn 登録・ログイン API、HttpOnly Cookie セッション、ログイン状態確認、ログアウトを追加しています。
 
-Passkey / WebAuthn の本実装、パスキーログイン、チャット投稿、データベース接続、本番向け管理者認証は後続 Phase で扱います。
+チャット投稿、データベース接続、本番向け管理者認証は後続 Phase で扱います。Phase 3 のデータはインメモリ保持のため、アプリ再起動で仮登録、承認状態、パスキー情報、セッションが失われます。
 
 ## 初期段階の重要方針
 
@@ -143,7 +143,7 @@ deployment:
   さくらインターネット
 ```
 
-## Phase 2 ローカル起動
+## Phase 3 ローカル起動
 
 ### 前提ツール
 
@@ -168,9 +168,9 @@ dotnet run
 Invoke-RestMethod http://localhost:5086/health
 ```
 
-`status` が `ok`、`phase` が `Phase 2` の JSON が返れば、バックエンドの起動確認は完了です。SignalR の接続口は `/hubs/chat` に用意していますが、Phase 2 ではチャット配信処理は実装していません。
+`status` が `ok`、`phase` が `Phase 3` の JSON が返れば、バックエンドの起動確認は完了です。SignalR の接続口は `/hubs/chat` に用意していますが、Phase 3 ではチャット配信処理は実装していません。
 
-Phase 2 の主な API:
+Phase 3 の主な API:
 
 | API | 用途 |
 | --- | --- |
@@ -179,18 +179,24 @@ Phase 2 の主な API:
 | `GET /api/admin/users/pending` | 承認待ち一覧を取得する。`Development` 環境限定 |
 | `POST /api/admin/users/{id}/approve` | 承認し、`PasskeyRegistrationPending` に変更する。`Development` 環境限定 |
 | `POST /api/admin/users/{id}/reject` | 否認し、`Rejected` に変更する。`Development` 環境限定 |
+| `POST /api/passkeys/register/options` | `PasskeyRegistrationPending` または `PasskeyResetAllowed` の利用者に WebAuthn 登録チャレンジを発行する |
+| `POST /api/passkeys/register/complete` | WebAuthn 登録結果を検証し、成功時に状態を `Active` にする |
+| `POST /api/auth/passkey/options` | `Active` の利用者に WebAuthn ログインチャレンジを発行する |
+| `POST /api/auth/passkey/complete` | WebAuthn ログイン結果を検証し、HttpOnly Cookie セッションを発行する |
+| `GET /api/auth/me` | Cookie セッションからログイン中利用者の最小情報を返す |
+| `POST /api/auth/logout` | サーバー側セッションを削除し、Cookie を失効させる |
 
-Phase 2 のデータはバックエンドプロセス内のインメモリストアに保持します。アプリを再起動すると登録データは失われます。データベース接続、接続文字列、固定シードデータは追加していません。
+Phase 3 のデータはバックエンドプロセス内のインメモリストアに保持します。アプリを再起動すると登録データ、パスキー情報、チャレンジ、セッションは失われます。ブラウザやOS側に残ったパスキーも、サーバー側の資格情報が失われるとログインに使えません。データベース接続、接続文字列、固定シードデータは追加していません。
 
 ### フロントエンド
 
 ```powershell
 cd src/frontend
 npm install
-npm run dev
+npm run dev -- --host localhost
 ```
 
-標準の起動 URL は `http://127.0.0.1:5173` です。
+WebAuthn のローカル検証では、RP ID を `localhost` としているため、まず `http://localhost:5173` から確認します。
 
 バックエンド URL を変える場合は、`src/frontend/.env.example` を参考に `.env` を作成し、`VITE_API_BASE_URL` を設定します。
 
@@ -216,7 +222,8 @@ npm run dev
 │   │   ├── README.md
 │   │   ├── 0001_phase1_minimum_scaffold.md
 │   │   ├── 0002_spec_review_followup.md
-│   │   └── 0003_phase2_registration_admin_approval.md
+│   │   ├── 0003_phase2_registration_admin_approval.md
+│   │   └── 0004_phase3_passkey_registration_login.md
 │   └── reviews/
 │       └── 0001_spec_review_2026-05-13.md
 ├── log/
@@ -226,7 +233,8 @@ npm run dev
 │       ├── README.md
 │       ├── 2026-05-14_01_initialize-project-documentation.md
 │       ├── 2026-05-14_02_phase1-minimum-scaffold.md
-│       └── 2026-05-14_03_phase2-registration-admin-approval.md
+│       ├── 2026-05-14_03_phase2-registration-admin-approval.md
+│       └── 2026-05-14_04_phase3-passkey-registration-login.md
 ├── prompts/
 │   ├── README.md
 │   ├── init/
@@ -235,7 +243,8 @@ npm run dev
 │   └── exec/
 │       ├── README.md
 │       ├── 01_phase1_minimum_scaffold.md
-│       └── 02_phase2_registration_admin_approval.md
+│       ├── 02_phase2_registration_admin_approval.md
+│       └── 03_phase3_passkey_registration_login.md
 ├── src/
 │   ├── README.md
 │   ├── frontend/
@@ -280,18 +289,19 @@ npm run dev
 
 ## 実装について
 
-Phase 2 では、ローカル検証用に以下を実装しています。
+Phase 3 では、ローカル検証用に以下を実装しています。
 
 - 仮登録フォームと `POST /api/registrations`
 - メールアドレスによる状態確認と `GET /api/registrations/status`
 - 開発環境限定の管理者承認画面
 - `Development` 環境限定の管理者 API
-- `PendingApproval`、`PasskeyRegistrationPending`、`Rejected` の状態遷移
+- `PendingApproval`、`PasskeyRegistrationPending`、`Active`、`Rejected` の状態遷移
+- パスキー登録画面と WebAuthn 登録 API
+- パスキーログイン画面と WebAuthn ログイン API
+- HttpOnly Cookie セッション、ログイン状態確認、ログアウト
 
 現時点で実装していない範囲:
 
-- Passkey / WebAuthn の本実装
-- パスキーログイン
 - チャット投稿、閲覧、反応、お知らせ
 - データベース作成、接続文字列、実データ投入
 - 本番向け管理者認証、初期管理者作成手順

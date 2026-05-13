@@ -53,6 +53,29 @@ Phase 2 の管理者承認 API は、Passkey / WebAuthn による管理者認証
 4. 公開鍵と資格情報IDを保存する
 5. 登録完了後、ユーザー状態を `Active` にする
 
+### Phase 3 のパスキー登録フロー
+
+Phase 3 では、`Fido2.AspNet` 4.0.1 を WebAuthn 実装ライブラリとして使います。ASP.NET Identity に依存せず、SPA と Minimal API の構成で WebAuthn 登録・認証の検証を行えるためです。
+
+登録開始:
+
+1. 利用者がパスキー登録画面でメールアドレスを入力する
+2. `POST /api/passkeys/register/options` がメールアドレスを正規化し、対象ユーザーを確認する
+3. 対象ユーザーの状態が `PasskeyRegistrationPending` または `PasskeyResetAllowed` の場合だけ登録を許可する
+4. サーバーが WebAuthn 登録チャレンジを発行し、インメモリストアに5分間だけ保持する
+5. ブラウザへ `navigator.credentials.create` 用のオプションを返す
+
+登録完了:
+
+1. ブラウザが WebAuthn API の結果を `POST /api/passkeys/register/complete` に送信する
+2. サーバーが未使用かつ期限内の登録チャレンジを取り出し、一回限り利用として消費する
+3. `Fido2.AspNet` で attestation response を検証する
+4. 資格情報 ID が既存パスキーと重複していないことを確認する
+5. 資格情報 ID、公開鍵、署名カウンタ、user handle を `UserPasskeys` 相当のインメモリストアへ保存する
+6. ユーザー状態を `Active` に更新する
+
+`PendingApproval`、`Rejected`、`Suspended`、`Active` の利用者には登録を許可しません。`Active` の利用者による追加パスキー登録は、Phase 3 では扱わず、後続 Phase で管理者操作またはログイン済み設定画面として検討します。
+
 ## パスキーログイン
 
 1. ユーザーがメールアドレスを入力する
@@ -60,6 +83,28 @@ Phase 2 の管理者承認 API は、Passkey / WebAuthn による管理者認証
 3. ブラウザの本人確認操作を開始する
 4. WebAuthn の署名検証に成功した場合にログインする
 5. 最終ログイン日時を更新する
+
+### Phase 3 のパスキーログインフロー
+
+ログイン開始:
+
+1. 利用者がログイン画面でメールアドレスを入力する
+2. `POST /api/auth/passkey/options` が対象ユーザーを確認する
+3. 対象ユーザーが `Active` で、登録済みパスキーがある場合だけログインを開始する
+4. サーバーが WebAuthn ログインチャレンジを発行し、インメモリストアに5分間だけ保持する
+5. ブラウザへ `navigator.credentials.get` 用のオプションを返す
+
+ログイン完了:
+
+1. ブラウザが WebAuthn API の結果を `POST /api/auth/passkey/complete` に送信する
+2. サーバーが未使用かつ期限内のログインチャレンジを取り出し、一回限り利用として消費する
+3. 資格情報 ID に対応する公開鍵と署名カウンタを取得する
+4. `Fido2.AspNet` で assertion response を検証する
+5. user handle が対象ユーザーのパスキーに紐づくことを確認する
+6. 署名カウンタと最終利用日時を更新する
+7. HttpOnly Cookie セッションを発行する
+
+`PendingApproval`、`PasskeyRegistrationPending`、`PasskeyResetAllowed`、`Rejected`、`Suspended` の利用者にはログインを許可しません。
 
 ## ログイン後セッション
 
@@ -70,6 +115,38 @@ MVPでは、WebAuthn 検証に成功した後、バックエンドが HttpOnly C
 - チャット閲覧、投稿、反応は `Active` ユーザーのみ許可する
 - `Suspended`、`Rejected`、`PendingApproval` のユーザーはログイン後の利用画面へ進めない
 - 開発環境ではフロントエンドとバックエンドのオリジン差異に注意し、Cookie送信を許可する設定を明示する
+
+### Phase 3 の Cookie セッション
+
+| 項目 | Phase 3 の扱い |
+| --- | --- |
+| Cookie 名 | `sac_session` |
+| 保存内容 | ランダムなセッションIDだけを保存する。ユーザー情報や個人情報は Cookie に入れない |
+| サーバー側保存 | セッションID、ユーザーID、発行日時、有効期限をインメモリで保持する |
+| 有効期限 | 8時間 |
+| HttpOnly | 有効 |
+| SameSite | `Lax` |
+| Secure | HTTPS 接続では有効。ローカル HTTP 開発では無効 |
+| ログイン確認 | `GET /api/auth/me` |
+| ログアウト | `POST /api/auth/logout` でサーバー側セッションを削除し、Cookie を失効させる |
+
+フロントエンドとバックエンドが別オリジンの場合、フロントエンドの fetch は `credentials: 'include'` を指定します。バックエンド CORS は `http://127.0.0.1:5173` と `http://localhost:5173` を許可し、資格情報付きリクエストを許可します。
+
+### RP ID と Origin
+
+Phase 3 のローカル検証では、バックエンド標準 URL を `http://localhost:5086`、フロントエンド標準 URL を `http://127.0.0.1:5173` または `http://localhost:5173` とします。
+
+WebAuthn の RP ID は `localhost` とします。Origin は `http://localhost:5086`、`http://localhost:5173`、`http://127.0.0.1:5173` を許可します。ブラウザによって `127.0.0.1` と `localhost` の扱いに差が出る場合があるため、パスキー検証はまず `http://localhost:5173` から確認します。
+
+本番環境では HTTPS を必須とし、RP ID と Origin は実際の公開ドメインに合わせて環境設定で上書きします。秘密情報や本番接続文字列はリポジトリに含めません。
+
+### Phase 3 のエラー方針
+
+- 入力検証エラーは日本語で返す
+- 一般利用者向け API では、他者の存在確認につながる詳細を返しすぎない
+- サーバーログにメールアドレス、氏名、卒業時のクラス名、WebAuthn 応答の詳細を不用意に出さない
+- WebAuthn チャレンジは期限切れ、不一致、使用済みを拒否する
+- パスワード、仮パスワード、共通パスワードは追加しない
 
 ## 端末変更・紛失時の復旧
 

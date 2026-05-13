@@ -5,4 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>SeniorAiChat.Api</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Fido2.AspNet" Version="4.0.1" />
+  </ItemGroup>
 </Project>

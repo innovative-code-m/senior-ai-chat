@@ -73,6 +73,60 @@ internal sealed class UserRegistrationService
         }
     }
 
+    public UserLookupResult FindByEmail(string? email)
+    {
+        var normalized = NormalizeEmail(email);
+        var errors = ValidateEmailOnly(normalized);
+
+        if (errors.Count > 0)
+        {
+            return UserLookupResult.Validation(errors);
+        }
+
+        lock (gate)
+        {
+            var user = users.FirstOrDefault(candidate => candidate.NormalizedEmail == normalized);
+            return user is null
+                ? UserLookupResult.Missing()
+                : UserLookupResult.Success(user);
+        }
+    }
+
+    public UserRecord? FindById(Guid id)
+    {
+        lock (gate)
+        {
+            return users.FirstOrDefault(candidate => candidate.Id == id);
+        }
+    }
+
+    public AdminUserActionResult CompletePasskeyRegistration(Guid id)
+    {
+        lock (gate)
+        {
+            var user = users.FirstOrDefault(candidate => candidate.Id == id);
+            if (user is null)
+            {
+                return AdminUserActionResult.NotFound("指定されたユーザーは見つかりませんでした。");
+            }
+
+            if (user.Status is not (UserStatus.PasskeyRegistrationPending or UserStatus.PasskeyResetAllowed))
+            {
+                return AdminUserActionResult.Conflict("パスキー登録できる状態ではありません。");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            user.Status = UserStatus.Active;
+            user.UpdatedAt = now;
+
+            return AdminUserActionResult.Success(new AdminUserActionResponse(
+                user.Id,
+                user.Status.ToString(),
+                user.UpdatedAt,
+                "パスキー登録が完了しました。"));
+        }
+    }
+
     public IReadOnlyList<PendingUserResponse> GetPendingUsers()
     {
         lock (gate)
@@ -318,6 +372,27 @@ internal sealed record RegistrationStatusResult(
     public static RegistrationStatusResult NotFound()
     {
         return new RegistrationStatusResult(null, null);
+    }
+}
+
+internal sealed record UserLookupResult(
+    UserRecord? User,
+    IReadOnlyDictionary<string, string[]>? ValidationErrors,
+    bool IsNotFound)
+{
+    public static UserLookupResult Success(UserRecord user)
+    {
+        return new UserLookupResult(user, null, false);
+    }
+
+    public static UserLookupResult Validation(IReadOnlyDictionary<string, string[]> errors)
+    {
+        return new UserLookupResult(null, errors, false);
+    }
+
+    public static UserLookupResult Missing()
+    {
+        return new UserLookupResult(null, null, true);
     }
 }
 
