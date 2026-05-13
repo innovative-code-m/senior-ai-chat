@@ -43,7 +43,9 @@ innovative-code-m:
 
 Phase 1「フロントエンドとバックエンドの最小雛形作成」は完了扱いです。
 
-現在は Phase 2「ユーザー仮登録と管理者承認」に入る前の仕様整理・設計更新フェーズです。仮登録、管理者承認、パスキー登録、チャット投稿などの本格機能は、関連する `docs/` の設計を更新してから後続 Phase で扱います。
+現在は Phase 2「ユーザー仮登録と管理者承認」のローカル検証実装段階です。仮登録、状態確認、開発環境限定の管理者承認 API / 画面を追加しています。
+
+Passkey / WebAuthn の本実装、パスキーログイン、チャット投稿、データベース接続、本番向け管理者認証は後続 Phase で扱います。
 
 ## 初期段階の重要方針
 
@@ -135,7 +137,7 @@ deployment:
   さくらインターネット
 ```
 
-## Phase 1 ローカル起動
+## Phase 2 ローカル起動
 
 ### 前提ツール
 
@@ -160,7 +162,19 @@ dotnet run
 Invoke-RestMethod http://localhost:5086/health
 ```
 
-`status` が `ok` の JSON が返れば、バックエンドの起動確認は完了です。SignalR の接続口は `/hubs/chat` に用意していますが、Phase 1 ではチャット配信処理は実装していません。
+`status` が `ok`、`phase` が `Phase 2` の JSON が返れば、バックエンドの起動確認は完了です。SignalR の接続口は `/hubs/chat` に用意していますが、Phase 2 ではチャット配信処理は実装していません。
+
+Phase 2 の主な API:
+
+| API | 用途 |
+| --- | --- |
+| `POST /api/registrations` | 氏名、メールアドレス、卒業時のクラス名を受け付け、`PendingApproval` で仮登録する |
+| `GET /api/registrations/status?email=...` | 入力メールアドレスの申請状態を確認する |
+| `GET /api/admin/users/pending` | 承認待ち一覧を取得する。`Development` 環境限定 |
+| `POST /api/admin/users/{id}/approve` | 承認し、`PasskeyRegistrationPending` に変更する。`Development` 環境限定 |
+| `POST /api/admin/users/{id}/reject` | 否認し、`Rejected` に変更する。`Development` 環境限定 |
+
+Phase 2 のデータはバックエンドプロセス内のインメモリストアに保持します。アプリを再起動すると登録データは失われます。データベース接続、接続文字列、固定シードデータは追加していません。
 
 ### フロントエンド
 
@@ -194,7 +208,8 @@ npm run dev
 │   ├── decisions/
 │   │   ├── README.md
 │   │   ├── 0001_phase1_minimum_scaffold.md
-│   │   └── 0002_spec_review_followup.md
+│   │   ├── 0002_spec_review_followup.md
+│   │   └── 0003_phase2_registration_admin_approval.md
 │   └── reviews/
 │       └── 0001_spec_review_2026-05-13.md
 ├── prompts/
@@ -203,7 +218,9 @@ npm run dev
 │   │   ├── README.md
 │   │   └── 00_initialize.md
 │   └── exec/
-│       └── README.md
+│       ├── README.md
+│       ├── 01_phase1_minimum_scaffold.md
+│       └── 02_phase2_registration_admin_approval.md
 ├── research-log/
 │   └── README.md
 ├── src/
@@ -250,14 +267,21 @@ npm run dev
 
 ## 実装について
 
-Phase 1 では、ローカル起動確認のための最小雛形のみを作成しました。
+Phase 2 では、ローカル検証用に以下を実装しています。
+
+- 仮登録フォームと `POST /api/registrations`
+- メールアドレスによる状態確認と `GET /api/registrations/status`
+- 開発環境限定の管理者承認画面
+- `Development` 環境限定の管理者 API
+- `PendingApproval`、`PasskeyRegistrationPending`、`Rejected` の状態遷移
 
 現時点で実装していない範囲:
 
-- 仮登録、管理者承認、ユーザー状態管理
 - Passkey / WebAuthn の本実装
-- チャット投稿、閲覧、反応、お知らせ、管理者操作
+- パスキーログイン
+- チャット投稿、閲覧、反応、お知らせ
 - データベース作成、接続文字列、実データ投入
+- 本番向け管理者認証、初期管理者作成手順
 - 本番デプロイ設定
 
 後続 Phase に入る前に、以下を決めます。

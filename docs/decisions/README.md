@@ -20,3 +20,4 @@
 
 - `0001_phase1_minimum_scaffold.md`: Phase 1 の最小雛形構成
 - `0002_spec_review_followup.md`: 仕様レビュー指摘への対応方針
+- `0003_phase2_registration_admin_approval.md`: Phase 2 の仮登録と管理者承認の実装方針

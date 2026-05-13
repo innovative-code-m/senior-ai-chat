@@ -81,6 +81,42 @@ dotnet run
 - MVPでは承認後の自動メール送信を必須にしない
 - 承認後の案内は、管理者による個別連絡とパスキー登録画面での状態確認で扱う
 
+### Phase 2 実装前提
+
+- Phase 2 ではデータベース接続、接続文字列、マイグレーション、固定シードデータを追加しない
+- Phase 2 のユーザー情報はバックエンドプロセス内のインメモリストアで保持し、ローカル検証だけに使う
+- アプリ再起動で Phase 2 の登録データは失われる
+- 仮登録ユーザーの `Role` は `Member` とする
+- メールアドレスは前後空白を除去し、小文字化した値で重複判定する
+- `PendingApproval`、`PasskeyRegistrationPending`、`Active`、`Suspended`、`PasskeyResetAllowed`、`Rejected` の既存メールアドレスでは、Phase 2 の再申請を許可しない
+- 管理者 API と管理者画面は `Development` 環境限定のローカル検証機能とし、本番運用可能な無認証管理機能として残さない
+- 承認後の自動メール送信は行わない
+- Passkey / WebAuthn の登録、認証、検証処理は Phase 3 で扱う
+
+### Phase 2 API
+
+| API | 用途 | Phase 2 の扱い |
+| --- | --- | --- |
+| `POST /api/registrations` | 仮登録 | 入力検証後、`PendingApproval` で保存する |
+| `GET /api/registrations/status?email=...` | 状態確認 | 入力メールアドレスに対応する状態だけを返す |
+| `GET /api/admin/users/pending` | 承認待ち一覧 | `Development` 環境限定 |
+| `POST /api/admin/users/{id}/approve` | 承認 | `PendingApproval` から `PasskeyRegistrationPending` に変更する。`Development` 環境限定 |
+| `POST /api/admin/users/{id}/reject` | 否認 | `PendingApproval` から `Rejected` に変更する。`Development` 環境限定 |
+
+### Phase 2 検証記録
+
+- 2026-05-14: `dotnet restore src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj` が成功
+- 2026-05-14: `dotnet build src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj --no-restore` が警告 0、エラー 0 で成功
+- 2026-05-14: `GET /health` が `phase: Phase 2` を返すことを確認
+- 2026-05-14: `POST /api/registrations` で検証用利用者Aが `PendingApproval` として登録されることを確認
+- 2026-05-14: `GET /api/registrations/status?email=phase2-user-a%40example.invalid` が承認前に `PendingApproval` を返すことを確認
+- 2026-05-14: `GET /api/admin/users/pending` が `Development` 環境で承認待ち 1 件を返すことを確認
+- 2026-05-14: `POST /api/admin/users/{id}/approve` で `PasskeyRegistrationPending` に遷移し、状態確認 API でも同じ状態を返すことを確認
+- 2026-05-14: 検証用利用者Bを仮登録し、`POST /api/admin/users/{id}/reject` で `Rejected` に遷移し、状態確認 API でも同じ状態を返すことを確認
+- 2026-05-14: `Production` 環境では `GET /api/admin/users/pending` が 404 となり、無認証の管理者 API が起動しないことを確認
+- 2026-05-14: この作業環境では `node` と `npm` が PATH 上に見つからないため、フロントエンドの依存関係確認、`npm run build`、`npm run dev` は未実行
+- 2026-05-14: `tests/` 配下に実行可能なテストプロジェクトはまだないため、バックエンド自動テストは未実行
+
 ## Phase 3: パスキー登録とログイン
 
 | 項目 | 内容 |

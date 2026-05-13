@@ -1,6 +1,6 @@
 :root {
-  color: #1d2329;
-  background: #f7f4ef;
+  color: #202833;
+  background: #f6f7f8;
   font-family:
     system-ui,
     -apple-system,
@@ -25,41 +25,62 @@ body {
   margin: 0;
 }
 
+button,
+input {
+  font: inherit;
+}
+
 button {
-  min-height: 52px;
+  min-height: 54px;
   padding: 0.75rem 1rem;
   border: 0;
   border-radius: 8px;
-  background: #1f6f68;
+  background: #176b66;
   color: #ffffff;
-  font: inherit;
   font-weight: 700;
   cursor: pointer;
 }
 
-button:focus-visible {
-  outline: 4px solid #d7a72f;
+button:focus-visible,
+input:focus-visible {
+  outline: 4px solid #d59d25;
   outline-offset: 3px;
 }
 
 button:hover {
-  background: #155a55;
+  background: #115450;
+}
+
+button.secondary {
+  background: #2f5f9d;
+}
+
+button.secondary:hover {
+  background: #254d80;
+}
+
+button.danger {
+  background: #9b3a2f;
+}
+
+button.danger:hover {
+  background: #7d2e25;
 }
 
 .app-shell {
   width: min(100% - 2rem, 1080px);
   margin: 0 auto;
-  padding: 3rem 0;
+  padding: 2.5rem 0;
 }
 
-.intro-panel {
-  padding: 2rem 0 1.5rem;
+.app-header {
+  padding: 1rem 0 1.25rem;
 }
 
 .phase-label,
-.card-label {
+.section-label {
   margin: 0 0 0.35rem;
-  color: #7a3f20;
+  color: #6f4a11;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -72,79 +93,181 @@ p {
 
 h1 {
   margin-bottom: 0.75rem;
-  font-size: clamp(2.1rem, 6vw, 4rem);
+  font-size: clamp(2rem, 6vw, 3.8rem);
   line-height: 1.08;
 }
 
 h2 {
-  margin-bottom: 0.75rem;
-  font-size: 1.45rem;
+  margin-bottom: 0;
+  font-size: 1.55rem;
   line-height: 1.25;
 }
 
 .lead {
-  max-width: 42rem;
+  max-width: 44rem;
   margin-bottom: 0;
-  font-size: 1.15rem;
+  font-size: 1.12rem;
 }
 
-.status-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
+.mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
 }
 
-.status-card {
+.mode-tabs button {
+  min-width: 8.5rem;
+  background: #ffffff;
+  color: #1d4f74;
+  border: 2px solid #c7d5df;
+}
+
+.mode-tabs button.active {
+  background: #1d4f74;
+  border-color: #1d4f74;
+  color: #ffffff;
+}
+
+.work-panel {
   display: grid;
-  align-content: start;
   gap: 1rem;
-  min-height: 20rem;
   padding: 1.25rem;
-  border: 1px solid #d8d0c6;
+  border: 1px solid #d9dee3;
   border-radius: 8px;
   background: #ffffff;
-  box-shadow: 0 10px 24px rgb(31 45 54 / 8%);
+  box-shadow: 0 10px 24px rgb(25 40 54 / 8%);
 }
 
-.status-card p {
-  margin-bottom: 0;
+.panel-heading {
+  display: grid;
+  gap: 0.25rem;
 }
 
-.status-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
-  min-height: 2.25rem;
-  padding: 0.2rem 0.75rem;
-  border-radius: 999px;
+.admin-heading {
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 1rem;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.form-grid.compact {
+  grid-template-columns: minmax(14rem, 28rem) auto;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
   font-weight: 700;
 }
 
-.status-pill.ready {
-  background: #e5f2ea;
-  color: #245b3f;
+label span {
+  color: #273545;
 }
 
-.health-message {
+input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0.75rem;
+  border: 2px solid #b7c2cc;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #202833;
+}
+
+.support-text,
+.warning-text {
+  margin-bottom: 0;
+  color: #475569;
+}
+
+.warning-text {
+  padding: 0.75rem;
+  border-left: 5px solid #d59d25;
+  background: #fff7df;
+  color: #5b4211;
+}
+
+.state-message {
   min-height: 3.25rem;
+  margin-bottom: 0;
   padding: 0.75rem;
   border-radius: 8px;
-  background: #f1f4f6;
   overflow-wrap: anywhere;
 }
 
-.health-message.success {
-  background: #e5f2ea;
+.state-message.loading {
+  background: #edf4fb;
+  color: #1d4f74;
+}
+
+.state-message.success {
+  background: #e5f3ea;
   color: #245b3f;
 }
 
-.health-message.error {
-  background: #fae8e2;
+.state-message.error {
+  background: #fbe9e5;
   color: #8a2d19;
 }
 
-@media (max-width: 760px) {
+.pending-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pending-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 1rem;
+  align-items: start;
+  padding: 1rem;
+  border: 1px solid #d9dee3;
+  border-radius: 8px;
+  background: #fbfcfd;
+}
+
+.person-name {
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0;
+}
+
+dl div {
+  min-width: 0;
+}
+
+dt {
+  color: #5c6670;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(5.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 840px) {
   :root {
     font-size: 17px;
   }
@@ -154,11 +277,22 @@ h2 {
     padding: 1.5rem 0;
   }
 
-  .status-grid {
+  .form-grid,
+  .form-grid.compact,
+  .pending-item,
+  .admin-heading {
     grid-template-columns: 1fr;
   }
 
-  .status-card {
-    min-height: auto;
+  .mode-tabs button {
+    flex: 1 1 9rem;
+  }
+
+  dl {
+    grid-template-columns: 1fr;
+  }
+
+  .action-row {
+    grid-template-columns: 1fr;
   }
 }
