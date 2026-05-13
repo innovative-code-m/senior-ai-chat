@@ -13,3 +13,4 @@
 
 - `01_phase1_minimum_scaffold.md`: Phase 1 のフロントエンドとバックエンドの最小雛形作成用プロンプト
 - `02_phase2_registration_admin_approval.md`: Phase 2 のユーザー仮登録と管理者承認用プロンプト
+- `03_phase3_passkey_registration_login.md`: Phase 3 のパスキー登録とログイン用プロンプト
