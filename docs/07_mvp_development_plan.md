@@ -13,8 +13,48 @@
 | 項目 | 内容 |
 | --- | --- |
 | 目的 | React + TypeScript と ASP.NET Core Web API の最小構成を作る |
-| 成果物 | フロントエンド雛形、バックエンド雛形、ローカル起動手順 |
-| 完了条件 | 開発環境でフロントエンドとバックエンドが起動できる |
+| 成果物 | `src/frontend/` の Vite + React + TypeScript 雛形、`src/backend/SeniorAiChat.Api/` の ASP.NET Core Web API 雛形、ローカル起動手順 |
+| 完了条件 | フロントエンドとバックエンドをローカルで起動し、バックエンドは `/health` の応答を確認できる |
+| Phase 1 の範囲外 | 仮登録、管理者承認、Passkey / WebAuthn 本実装、チャット投稿、データベース接続、本番デプロイ設定 |
+
+### Phase 1 構成メモ
+
+- フロントエンドは `src/frontend/` に作成する
+- バックエンドは `src/backend/SeniorAiChat.Api/` に作成する
+- バックエンドの起動確認 API は `GET /health` とする
+- 将来の SignalR 利用を見据え、`/hubs/chat` の接続口だけを用意する
+- Phase 1 ではパスワード欄、実データ、秘密情報、データベース接続を追加しない
+
+### Phase 1 起動手順
+
+フロントエンド:
+
+```powershell
+cd src/frontend
+npm install
+npm run dev
+```
+
+標準 URL は `http://127.0.0.1:5173`。
+
+バックエンド:
+
+```powershell
+cd src/backend/SeniorAiChat.Api
+dotnet restore
+dotnet build
+dotnet run
+```
+
+標準 URL は `http://localhost:5086`。起動後、`Invoke-RestMethod http://localhost:5086/health` で `status: ok` を確認する。
+
+### Phase 1 検証記録
+
+- 2026-05-14: `.NET SDK 9.0.310` が利用可能であることを確認
+- 2026-05-14: `dotnet restore src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj` が成功
+- 2026-05-14: `dotnet build src/backend/SeniorAiChat.Api/SeniorAiChat.Api.csproj --no-restore` が警告 0、エラー 0 で成功
+- 2026-05-14: `http://localhost:5086/health` が `status: ok` を返すことを確認
+- 2026-05-14: この作業環境では `node` と `npm` が PATH 上に見つからないため、フロントエンドの `npm install`、`npm run build`、`npm run dev` は未実行
 
 ## Phase 2: ユーザー仮登録と管理者承認
 

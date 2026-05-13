@@ -1,0 +1,164 @@
+:root {
+  color: #1d2329;
+  background: #f7f4ef;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 18px;
+  line-height: 1.65;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
+
+button {
+  min-height: 52px;
+  padding: 0.75rem 1rem;
+  border: 0;
+  border-radius: 8px;
+  background: #1f6f68;
+  color: #ffffff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 4px solid #d7a72f;
+  outline-offset: 3px;
+}
+
+button:hover {
+  background: #155a55;
+}
+
+.app-shell {
+  width: min(100% - 2rem, 1080px);
+  margin: 0 auto;
+  padding: 3rem 0;
+}
+
+.intro-panel {
+  padding: 2rem 0 1.5rem;
+}
+
+.phase-label,
+.card-label {
+  margin: 0 0 0.35rem;
+  color: #7a3f20;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+h1,
+h2,
+p {
+  margin-top: 0;
+}
+
+h1 {
+  margin-bottom: 0.75rem;
+  font-size: clamp(2.1rem, 6vw, 4rem);
+  line-height: 1.08;
+}
+
+h2 {
+  margin-bottom: 0.75rem;
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.lead {
+  max-width: 42rem;
+  margin-bottom: 0;
+  font-size: 1.15rem;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.status-card {
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  min-height: 20rem;
+  padding: 1.25rem;
+  border: 1px solid #d8d0c6;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgb(31 45 54 / 8%);
+}
+
+.status-card p {
+  margin-bottom: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  min-height: 2.25rem;
+  padding: 0.2rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.status-pill.ready {
+  background: #e5f2ea;
+  color: #245b3f;
+}
+
+.health-message {
+  min-height: 3.25rem;
+  padding: 0.75rem;
+  border-radius: 8px;
+  background: #f1f4f6;
+  overflow-wrap: anywhere;
+}
+
+.health-message.success {
+  background: #e5f2ea;
+  color: #245b3f;
+}
+
+.health-message.error {
+  background: #fae8e2;
+  color: #8a2d19;
+}
+
+@media (max-width: 760px) {
+  :root {
+    font-size: 17px;
+  }
+
+  .app-shell {
+    width: min(100% - 1.25rem, 1080px);
+    padding: 1.5rem 0;
+  }
+
+  .status-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .status-card {
+    min-height: auto;
+  }
+}

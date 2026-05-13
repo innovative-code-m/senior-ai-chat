@@ -41,9 +41,9 @@ innovative-code-m:
 
 ## 現在のフェーズ
 
-現在は初期構想・設計フェーズです。
+現在は Phase 1「フロントエンドとバックエンドの最小雛形作成」です。
 
-この段階では実装コードを作成せず、目的、想定利用者、必要機能、観察方針、安全性、将来の実装範囲を整理します。
+この段階では本格的な業務機能を実装せず、React + TypeScript の起動確認用画面と、ASP.NET Core Web API の起動確認用 API を用意します。仮登録、管理者承認、パスキー登録、チャット投稿などは後続 Phase で扱います。
 
 ## 初期段階の重要方針
 
@@ -132,7 +132,46 @@ deployment:
   さくらインターネット
 ```
 
-## 初期ディレクトリ構成
+## Phase 1 ローカル起動
+
+### 前提ツール
+
+- Node.js 20.19 以降
+- npm
+- .NET SDK 9
+
+### バックエンド
+
+```powershell
+cd src/backend/SeniorAiChat.Api
+dotnet restore
+dotnet build
+dotnet run
+```
+
+標準の起動 URL は `http://localhost:5086` です。
+
+起動確認:
+
+```powershell
+Invoke-RestMethod http://localhost:5086/health
+```
+
+`status` が `ok` の JSON が返れば、バックエンドの起動確認は完了です。SignalR の接続口は `/hubs/chat` に用意していますが、Phase 1 ではチャット配信処理は実装していません。
+
+### フロントエンド
+
+```powershell
+cd src/frontend
+npm install
+npm run dev
+```
+
+標準の起動 URL は `http://127.0.0.1:5173` です。
+
+バックエンド URL を変える場合は、`src/frontend/.env.example` を参考に `.env` を作成し、`VITE_API_BASE_URL` を設定します。
+
+## 主なディレクトリ構成
 
 ```text
 .
@@ -163,9 +202,13 @@ deployment:
 ├── src/
 │   ├── README.md
 │   ├── frontend/
-│   │   └── .gitkeep
+│   │   ├── README.md
+│   │   ├── package.json
+│   │   ├── index.html
+│   │   └── src/
 │   └── backend/
-│       └── .gitkeep
+│       ├── README.md
+│       └── SeniorAiChat.Api/
 ├── tests/
 │   ├── README.md
 │   ├── frontend/
@@ -200,11 +243,18 @@ deployment:
 
 ## 実装について
 
-実装技術は予定段階です。この初期化段階では、Reactアプリ生成、ASP.NET Coreプロジェクト生成、パッケージ追加、データベース作成は行いません。
+Phase 1 では、ローカル起動確認のための最小雛形のみを作成しています。
 
-実装に入る前に、以下を決めます。
+現時点で実装していない範囲:
 
-- 最小機能の範囲
+- 仮登録、管理者承認、ユーザー状態管理
+- Passkey / WebAuthn の本実装
+- チャット投稿、閲覧、反応、お知らせ、管理者操作
+- データベース作成、接続文字列、実データ投入
+- 本番デプロイ設定
+
+後続 Phase に入る前に、以下を決めます。
+
 - Passkey / WebAuthn を前提にした参加者登録・招待方式
 - チャット履歴と個人情報の保存方針
 - 生成AI連携の有無と利用目的
