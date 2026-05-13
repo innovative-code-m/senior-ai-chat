@@ -216,7 +216,10 @@ npm run dev
 │   ├── research/
 │   │   └── README.md
 │   └── working/
-│       └── README.md
+│       ├── README.md
+│       ├── 2026-05-14_01_initialize-project-documentation.md
+│       ├── 2026-05-14_02_phase1-minimum-scaffold.md
+│       └── 2026-05-14_03_phase2-registration-admin-approval.md
 ├── prompts/
 │   ├── README.md
 │   ├── init/
