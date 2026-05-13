@@ -212,6 +212,11 @@ npm run dev
 │   │   └── 0003_phase2_registration_admin_approval.md
 │   └── reviews/
 │       └── 0001_spec_review_2026-05-13.md
+├── log/
+│   ├── research/
+│   │   └── README.md
+│   └── working/
+│       └── README.md
 ├── prompts/
 │   ├── README.md
 │   ├── init/
@@ -221,8 +226,6 @@ npm run dev
 │       ├── README.md
 │       ├── 01_phase1_minimum_scaffold.md
 │       └── 02_phase2_registration_admin_approval.md
-├── research-log/
-│   └── README.md
 ├── src/
 │   ├── README.md
 │   ├── frontend/
